@@ -35,7 +35,7 @@ def onehot_encoding(data):
     return data
 def scaler(data):
     scaler=MinMaxScaler()
-    data[['Amount', 'Value']]=data.fit_transform(data[['Amount', 'Value']])
+    data[['Amount', 'Value']]=scaler.fit_transform(data[['Amount', 'Value']])
     return data
 
 
