@@ -30,3 +30,30 @@ def calculate_rfms_score(data):
     data['Classification'] = np.where(data['RFMS_Score'] >= threshold, 'Good', 'Bad')
     
     return data
+def classify_risk_level(row):
+    # Example criteria (adjust thresholds based on your data and business understanding)
+    if row['Recency'] <= 30 and row['Frequency'] >= 5 and row['Monetary'] >= 1000:
+        return 'Low'  # Low risk: Recent transactions, high frequency, and high spending
+    elif 30 < row['Recency'] <= 90 and row['Frequency'] >= 2 and row['Monetary'] >= 500:
+        return 'Medium'  # Medium risk: Somewhat recent, moderate frequency, moderate spend
+    else:
+        return 'High'  # High risk: Less recent transactions, low frequency, low spending
+def woe_binning(data,feature,target):
+    # Create bins for the feature using pd.qcut (quantile-based binning)
+    # Adjust the number of bins if necessary
+    bins = pd.qcut(data[feature], q=5, labels=False, duplicates='drop')  # Using 5 bins as an example
+    
+    # Create a DataFrame with feature bins and the target variable
+    data['bin'] = bins
+    grouped = data.groupby('bin')[target].agg(['count', 'sum'])  # count of each bin and sum of target (defaults)
+    
+    # Calculate WoE for each bin
+    grouped['dist_good'] = 1 - grouped['sum'] / grouped['sum'].sum()  # Proportion of good (not default)
+    grouped['dist_bad'] = grouped['sum'] / grouped['sum'].sum()  # Proportion of bad (default)
+    grouped['woe'] = np.log(grouped['dist_good'] / grouped['dist_bad'])  # WoE formula
+    
+    # Merge the WoE values back to the data
+    data = data.merge(grouped[['woe']], left_on='bin', right_index=True, how='left')
+    data = data.drop(columns=['bin'])  # Drop the bin column after merging WoE
+    
+    return data
