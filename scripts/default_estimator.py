@@ -25,7 +25,6 @@ def calculate_rfms_score(data):
         0.3 * data['Frequency_Scaled'] +
         0.3 * data['Monetary_Scaled']
     )
-    
     # Classify users based on RFMS score
     threshold = data['RFMS_Score'].median()
     data['Classification'] = np.where(data['RFMS_Score'] >= threshold, 'Good', 'Bad')
