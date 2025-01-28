@@ -30,30 +30,45 @@ def calculate_rfms_score(data):
     data['Classification'] = np.where(data['RFMS_Score'] >= threshold, 'Good', 'Bad')
     
     return data
+#def classify_risk_level(data):
+#    recency = float(data['Recency'])
+ #   frequency = float(data['Frequency'])
+#    monetary = float(data['Monetary'])
+#    # Adjusted thresholds
+  #  if data['Recency'] < 30 and data['Frequency'] > 10:
+   #     return 'High'
+    #else:
+    #    return 'Low'
 def classify_risk_level(row):
-    # Example criteria (adjust thresholds based on your data and business understanding)
-    if row['Recency'] <= 30 and row['Frequency'] >= 5 and row['Monetary'] >= 1000:
-        return 'Low'  # Low risk: Recent transactions, high frequency, and high spending
-    elif 30 < row['Recency'] <= 90 and row['Frequency'] >= 2 and row['Monetary'] >= 500:
-        return 'Medium'  # Medium risk: Somewhat recent, moderate frequency, moderate spend
+    recency = row['Recency']
+    frequency = row['Frequency']
+    monetary = row['Monetary']
+    
+    if recency <= 15 and frequency >= 10 and monetary >= 2000:
+        return 'Low'
+    elif 15 < recency <= 60 and frequency >= 5 and monetary >= 1000:
+        return 'Medium'
     else:
-        return 'High'  # High risk: Less recent transactions, low frequency, low spending
-def woe_binning(data,feature,target):
-    # Create bins for the feature using pd.qcut (quantile-based binning)
-    # Adjust the number of bins if necessary
-    bins = pd.qcut(data[feature], q=5, labels=False, duplicates='drop')  # Using 5 bins as an example
+        return 'High'
+def woe_binning(data, feature, target, bins=10):
+    # Create bins for the feature
+    data['bin'] = pd.cut(data[feature], bins=bins, labels=False, include_lowest=True)
     
-    # Create a DataFrame with feature bins and the target variable
-    data['bin'] = bins
-    grouped = data.groupby('bin')[target].agg(['count', 'sum'])  # count of each bin and sum of target (defaults)
+    # Group by bins and calculate necessary aggregates
+    grouped = data.groupby('bin')[target].agg(['count', 'sum'])
     
-    # Calculate WoE for each bin
-    grouped['dist_good'] = 1 - grouped['sum'] / grouped['sum'].sum()  # Proportion of good (not default)
-    grouped['dist_bad'] = grouped['sum'] / grouped['sum'].sum()  # Proportion of bad (default)
-    grouped['woe'] = np.log(grouped['dist_good'] / grouped['dist_bad'])  # WoE formula
+    # Add a small constant to avoid division by zero
+    grouped['good'] = grouped['count'] - grouped['sum']  # Non-target class
+    grouped['bad'] = grouped['sum']  # Target class
     
-    # Merge the WoE values back to the data
-    data = data.merge(grouped[['woe']], left_on='bin', right_index=True, how='left')
-    data = data.drop(columns=['bin'])  # Drop the bin column after merging WoE
+    grouped['woe'] = np.log((grouped['good'] / grouped['good'].sum() + 1e-6) /
+                            (grouped['bad'] / grouped['bad'].sum() + 1e-6))
+    
+    # Map the WoE back to the original data
+    woe_map = grouped['woe'].to_dict()
+    data['woe'] = data['bin'].map(woe_map)
+    
+    # Drop the 'bin' column after use (optional)
+    data.drop(columns=['bin'], inplace=True)
     
     return data
